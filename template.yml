@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Lambda Ephemeral Storage Tester
+
+Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: 'development'
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingBurstLimit: '20'
+          ThrottlingRateLimit: '40.0'
+
+  defaultEphemeralStorageFunction:
+   Type: AWS::Serverless::Function
+   Properties:
+     Handler: com.slalom.TempStorageCalculator
+     Description: Function returning the default size of the ephemeral storage
+     Runtime: java11
+     CodeUri: build/distributions/lambdaEphemeral.zip
+     Timeout: 30
+     Environment:
+         Variables:
+           FILE_SIZE_TO_CREATE_MB: 100
+     Policies:
+       - AWSXrayWriteOnlyAccess
+       - AWSLambdaBasicExecutionRole
+     Layers:
+       - !Ref dependencyLibraries
+     Architectures:
+       - arm64
+     Tracing: Active
+     Events:
+       GetStorage:
+         Type: Api
+         Properties:
+           Path: /default-storage
+           Method: GET
+           RestApiId:
+             Ref: ApiGatewayApi
+
+  enhancedEphemeralStorageFunction:
+   Type: AWS::Serverless::Function
+   Properties:
+     Handler: com.slalom.TempStorageCalculator
+     Description: Function returning the enhanced size of the ephemeral storage
+     Runtime: java11
+     CodeUri: build/distributions/lambdaEphemeral.zip
+     Timeout: 30
+     Environment:
+         Variables:
+           FILE_SIZE_TO_CREATE_MB: 900
+     Policies:
+       - AWSXrayWriteOnlyAccess
+       - AWSLambdaBasicExecutionRole
+     Layers:
+       - !Ref dependencyLibraries
+     Architectures:
+       - arm64
+     #EphemeralStorage:
+     #   Size: 1024
+     Tracing: Active
+     Events:
+       GetStorage:
+         Type: Api
+         Properties:
+           Path: /enhanced-storage
+           Method: GET
+           RestApiId:
+             Ref: ApiGatewayApi
+
+  dependencyLibraries:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: storage-tester-library
+      Description: Dependencies for the functions
+      Content: build/distributions/lambdaEphemeral-libs.zip
+      CompatibleRuntimes:
+        - java11
+      CompatibleArchitectures:
+        - x86_64
