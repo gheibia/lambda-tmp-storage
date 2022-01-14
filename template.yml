@@ -2,7 +2,31 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: Lambda Ephemeral Storage Tester
 
+Parameters:
+  FileName:
+    Description: The name of the file that function downloads from S3
+    Type: String
+    Default: 'data-file'
+  StorageSize:
+    Description: Size of the ephemeral storage
+    Type: Number
+    Default: 512
+
 Resources:
+  FileStorage:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-ephstorage'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+
   ApiGatewayApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -13,60 +37,43 @@ Resources:
           ThrottlingBurstLimit: '20'
           ThrottlingRateLimit: '40.0'
 
-  defaultEphemeralStorageFunction:
+  ephemeralStorageTesterFunction:
    Type: AWS::Serverless::Function
    Properties:
      Handler: com.slalom.TempStorageCalculator
-     Description: Function returning the default size of the ephemeral storage
+     Description: Function returning the size of the ephemeral storage after downloading an object from S3
      Runtime: java11
      CodeUri: build/distributions/lambdaEphemeral.zip
-     Timeout: 30
+     Timeout: 900
+     MemorySize: 10240
      Environment:
          Variables:
-           FILE_SIZE_TO_CREATE_MB: 100
+           S3_FILE_NAME: !Ref FileName
+           S3_BUCKET_NAME: !Sub '${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-ephstorage'
      Policies:
-       - AWSXrayWriteOnlyAccess
-       - AWSLambdaBasicExecutionRole
+      - AWSXrayWriteOnlyAccess
+      - AWSLambdaBasicExecutionRole
+      - Statement:
+        - Effect: "Allow" 
+          Action: s3:GetObject
+          Resource:
+          - !Sub 'arn:aws:s3:::${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-ephstorage/*'
+        - Effect: "Allow" 
+          Action: s3:ListBucket
+          Resource:
+          - !Sub 'arn:aws:s3:::${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-ephstorage'
      Layers:
        - !Ref dependencyLibraries
-     Architectures:
-       - arm64
-     Tracing: Active
-     Events:
-       GetStorage:
-         Type: Api
-         Properties:
-           Path: /default-storage
-           Method: GET
-           RestApiId:
-             Ref: ApiGatewayApi
-
-  enhancedEphemeralStorageFunction:
-   Type: AWS::Serverless::Function
-   Properties:
-     Handler: com.slalom.TempStorageCalculator
-     Description: Function returning the enhanced size of the ephemeral storage
-     Runtime: java11
-     CodeUri: build/distributions/lambdaEphemeral.zip
-     Timeout: 30
-     Environment:
-         Variables:
-           FILE_SIZE_TO_CREATE_MB: 900
-     Policies:
-       - AWSXrayWriteOnlyAccess
-       - AWSLambdaBasicExecutionRole
-     Layers:
-       - !Ref dependencyLibraries
-     Architectures:
-       - arm64
+     #Architectures:
+     #  - arm64
      #EphemeralStorage:
-     #   Size: 1024
+     #   Size: !Ref StorageSize
      Tracing: Active
      Events:
        GetStorage:
          Type: Api
          Properties:
-           Path: /enhanced-storage
+           Path: /ephemeral-storages
            Method: GET
            RestApiId:
              Ref: ApiGatewayApi
@@ -79,5 +86,5 @@ Resources:
       Content: build/distributions/lambdaEphemeral-libs.zip
       CompatibleRuntimes:
         - java11
-      CompatibleArchitectures:
-        - x86_64
+      #CompatibleArchitectures:
+      #  - x86_64

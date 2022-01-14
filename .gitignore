@@ -27,4 +27,4 @@ build/
 .gradle/
 .DS_Store
 .vscode/
-out.yml
+out*.yml

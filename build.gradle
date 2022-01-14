@@ -7,6 +7,8 @@ repositories {
 }
 
 dependencies {
+    implementation platform('software.amazon.awssdk:bom:2.17.103')
+    implementation 'software.amazon.awssdk:s3'
     implementation 'com.amazonaws:aws-lambda-java-core:1.2.1'
     implementation 'com.amazonaws:aws-lambda-java-events:3.10.0'
     implementation platform('com.amazonaws:aws-xray-recorder-sdk-bom:2.4.0')
