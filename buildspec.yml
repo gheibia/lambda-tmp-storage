@@ -9,7 +9,7 @@ phases:
       - ./gradlew -q clean packageLibs
       - mv build/distributions/lambdaEphemeral.zip build/distributions/lambdaEphemeral-libs.zip
       - ./gradlew -q build
-      - sam package
+      - aws cloudformation package
         --template-file template.yml
         --s3-bucket ephemeral-tester-src
         --output-template-file out.yml
